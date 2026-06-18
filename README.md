@@ -1522,7 +1522,7 @@ DOCKER INC. **GitHub — Docker**. Disponível em: https://github.com/docker. Ac
 
   **Desenvolvido como material de apoio acadêmico**
 
-  Glaucia Costa · Junho de 2026
+  Glaucia da Costa Santos · Junho de 2026
 
   *"Funciona na minha máquina? Agora funciona em qualquer máquina."*
 
