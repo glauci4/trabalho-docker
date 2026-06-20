@@ -6,10 +6,6 @@
 
   Guia completo de containerização — do conceito à prática
 
-  Trabalho Acadêmico · Disciplina de Computação em Nuvem / Desenvolvimento de Software
-
-  Glaucia da Costa Santos RA:60002288 · Junho de 2026
-
   ---
 
   ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
@@ -1156,7 +1152,24 @@ flowchart LR
 
 ### Sobre o NeuroSync
 
-O **NeuroSync** é um sistema web para gerenciamento de clínicas de psicologia, desenvolvido como Trabalho de Conclusão de Curso (TCC). A aplicação oferece funcionalidades como cadastro de pacientes, agendamento de sessões, registro de evoluções clínicas e gestão financeira para psicólogos autônomos e clínicas.
+O **NeuroSync** é um sistema web para gestão de clínicas psicológicas e serviço-escola, desenvolvido como Trabalho de Conclusão de Curso (TCC). O sistema tem como objetivo centralizar e automatizar a gestão operacional e clínica, com suporte a múltiplos perfis de usuário e segregação de dados por clínica.
+
+Entre as principais funcionalidades implementadas estão:
+
+- **Autenticação e controle de acesso por perfis** — cada perfil de usuário possui permissões específicas, garantindo que cada ator acesse apenas o que lhe é pertinente;
+- **Gerenciamento de pacientes** — cadastro e administração do vínculo de pacientes com a clínica;
+- **Agenda clínica** — visualização e controle da programação de atendimentos;
+- **Agendamento de consultas** — criação, edição e cancelamento de consultas entre pacientes e psicólogos;
+- **Gerenciamento de salas** — controle de disponibilidade e alocação dos espaços físicos da clínica;
+- **Configuração do funcionamento da clínica** — definição de horários de funcionamento, exceções, feriados e bloqueios de agenda;
+- **Prontuário eletrônico com evoluções clínicas** — registro e acompanhamento das sessões de cada paciente, com acesso restrito ao psicólogo responsável;
+- **Transferência de pacientes entre psicólogos** — suporte ao remanejamento de vínculos clínicos dentro da clínica;
+- **Notificações internas** — comunicação entre usuários do sistema;
+- **Relatórios operacionais e clínicos** — geração de relatórios para apoio à gestão da clínica.
+
+> **Importante**
+>
+> O NeuroSync garante a **segregação de dados por clínica** — cada clínica acessa apenas seus próprios registros, sem interferência entre instalações. Adicionalmente, apenas o **psicólogo responsável** pelo paciente pode acessar e registrar evoluções no prontuário eletrônico, assegurando a confidencialidade clínica exigida pelos princípios éticos da psicologia. O sistema também implementa **controle de permissões por perfil**, restringindo o acesso às funcionalidades conforme o papel de cada usuário.
 
 ### Stack Tecnológica
 
@@ -1170,37 +1183,38 @@ O **NeuroSync** é um sistema web para gerenciamento de clínicas de psicologia,
 | Camada | Tecnologia | Responsabilidade |
 |---|---|---|
 | **Frontend** | Next.js + React + TypeScript | Interface do usuário e renderização server-side |
-| **Backend** | Node.js (via Next.js API Routes) | Regras de negócio e endpoints REST |
-| **Banco de Dados** | MySQL 8.0 | Persistência de dados clínicos |
+| **Backend** | Node.js Runtime (via Next.js API Routes) | Regras de negócio e endpoints REST |
+| **Banco de Dados** | MySQL 8 | Persistência de dados clínicos e operacionais |
 | **Containerização** | Docker + Docker Compose | Orquestração e padronização do ambiente |
 
 ### Arquitetura com Docker Compose
 
-O NeuroSync é composto por serviços independentes, cada um com responsabilidade bem definida:
+O NeuroSync é composto por dois containers principais, cada um com responsabilidade bem definida:
 
 ```mermaid
 flowchart TB
-    USER["Usuário / Psicólogo\nNavegador Web"]
+    USER["Usuário\nNavegador Web"]
 
     subgraph HOST["Host — Máquina do Desenvolvedor ou Servidor"]
         direction TB
 
-        subgraph NETWORK["Rede Docker: app-network"]
+        subgraph NETWORK["Rede Interna do Docker Compose"]
             direction LR
 
-            subgraph APP["Container: neurosync-app"]
+            subgraph APP["Container: app"]
                 direction TB
                 NEXTJS["Next.js + React\nTypeScript"]
+                ROUTES["API Routes\nRegras de Negócio"]
                 NODE["Node.js Runtime"]
-                NEXTJS --> NODE
+                NEXTJS --> ROUTES --> NODE
             end
 
-            subgraph DB["Container: neurosync-db"]
+            subgraph DB["Container: db"]
                 direction TB
-                MYSQL["MySQL 8.0"]
+                MYSQL["MySQL 8"]
             end
 
-            APP -->|"porta 3306\nhostname: db"| DB
+            APP -->|"hostname: db\nporta 3306"| DB
         end
 
         VOL[("Volume: dados-mysql\npersistência do banco")]
@@ -1210,80 +1224,71 @@ flowchart TB
     USER -->|"HTTP localhost:3000"| APP
 ```
 
-### Responsabilidade de Cada Serviço
-
-| Serviço | Container | Tecnologia | Responsabilidade |
-|---|---|---|---|
-| `app` | `neurosync-app` | Next.js + Node.js | Frontend, API, regras de negócio |
-| `db` | `neurosync-db` | MySQL 8.0 | Armazenamento de todos os dados |
+| Serviço | Tecnologia | Responsabilidade |
+|---|---|---|
+| `app` | Next.js + Node.js Runtime | Frontend, API Routes e todas as regras de negócio |
+| `db` | MySQL 8 | Armazenamento persistente de todos os dados clínicos e operacionais |
 
 ### Comunicação entre Serviços
 
-Um dos recursos mais poderosos do Docker Compose é a **resolução de nomes por serviço**. Na rede interna `app-network`, o container `app` consegue se conectar ao MySQL simplesmente usando `db` como hostname — o Docker Compose resolve automaticamente esse nome para o endereço IP interno do container correto.
+Na rede interna criada pelo Docker Compose, o container `app` conecta-se ao banco de dados utilizando simplesmente o hostname `db` — que corresponde ao nome do serviço declarado no `docker-compose.yml`. O Docker Compose resolve esse nome para o endereço IP interno correto automaticamente, sem necessidade de configurar IPs fixos.
 
 ```bash
-# Conexão do código Node.js com o banco de dados
+# Exemplo de configuração de conexão com o banco de dados
 DB_HOST=db       # 'db' é o nome do serviço no docker-compose.yml
 DB_PORT=3306
 DB_NAME=neurosync
 ```
 
-Isso significa que **nenhum endereço IP precisa ser configurado manualmente**, e que ao reiniciar os containers (mesmo que recebam novos IPs internos), a comunicação continua funcionando sem qualquer alteração.
+Isso garante que, mesmo que os containers sejam reiniciados e recebam novos endereços IP internos, a comunicação entre os serviços continua funcionando sem nenhuma alteração de configuração.
 
-### Por que o Docker foi Escolhido para o TCC
+### Por que o Docker foi Adotado no NeuroSync
 
-A escolha do Docker para o NeuroSync não foi apenas técnica — foi também estratégica para o futuro do sistema:
+A decisão de utilizar Docker no NeuroSync foi motivada tanto pelas necessidades imediatas do desenvolvimento quanto pela visão de futuro do projeto.
 
-#### Durante o Desenvolvimento
+#### Padronização do Ambiente e Eliminação de Conflitos de Dependências
 
-```mermaid
-sequenceDiagram
-    participant DEV as Desenvolvedor
-    participant GIT as Repositório Git
-    participant DC as Docker Compose
-    participant APP as Container App
-    participant DB as Container MySQL
-
-    DEV->>GIT: git clone
-    DEV->>DC: docker compose up -d
-    DC->>DB: Cria container MySQL
-    DB-->>DC: Healthcheck: OK
-    DC->>APP: Cria container App
-    APP-->>DEV: localhost:3000 disponível
-```
+Em um projeto de TCC com múltiplos colaboradores, garantir que todos trabalhem com as mesmas versões de Node.js, MySQL e demais dependências é essencial para evitar inconsistências. Com o Docker, o ambiente é descrito em código (`Dockerfile` e `docker-compose.yml`) e versionado junto ao repositório. Ao executar `docker compose up`, qualquer colaborador obtém exatamente o mesmo ambiente, independentemente do sistema operacional ou das configurações locais da sua máquina.
 
 | Benefício | Como o Docker viabilizou |
 |---|---|
-| **Onboarding rápido** | `docker compose up` — ambiente completo em minutos |
-| **Sem conflitos de versão** | Cada container tem suas próprias versões do Node.js e MySQL |
-| **Ambiente idêntico** | Qualquer membro da equipe tem o mesmo ambiente |
-| **Testes isolados** | Banco de dados em container separado, sem afetar ambiente local |
+| **Sem conflitos de versão** | Node.js e MySQL isolados em containers com versões fixas |
+| **Ambiente idêntico para todos** | O mesmo `docker-compose.yml` garante paridade total entre máquinas |
+| **Onboarding simplificado** | Um único comando levanta toda a aplicação |
+| **Compatibilidade entre sistemas** | Funciona em Windows, macOS e Linux sem ajustes |
 
-#### Para CI/CD
+#### Facilidade de Instalação e Testes
 
-Pipelines de integração contínua podem usar a mesma imagem Docker para rodar testes, garantindo que o ambiente de CI seja idêntico ao de desenvolvimento e produção. O processo de build e deploy torna-se automatizável e confiável.
+Ao eliminar a necessidade de instalar e configurar manualmente o MySQL e outras dependências do sistema operacional, o Docker reduz significativamente o tempo para que qualquer pessoa possa testar o sistema — inclusive avaliadores do TCC sem conhecimento técnico aprofundado em configuração de ambientes. O banco de dados em container garante ainda que os testes sejam realizados em um ambiente isolado e reproduzível, sem afetar configurações locais existentes.
 
-#### Para Distribuição Futura
+#### Base Arquitetural para Implantação Futura em Clínicas
 
-O Docker foi escolhido porque permitirá futuramente **distribuir o NeuroSync para clínicas com uma instalação completamente padronizada**. Em vez de contratar um técnico para configurar cada servidor, a clínica pode receber um conjunto de arquivos (`docker-compose.yml` + imagem) e iniciar o sistema com um único comando.
+O Docker foi adotado com a perspectiva de que o NeuroSync será futuramente implantado em clínicas psicológicas reais. A arquitetura em containers foi pensada para facilitar essa distribuição: em vez de exigir configuração manual de servidor para cada clínica, o sistema poderá ser entregue com um conjunto de arquivos de configuração prontos. Atualizações de versão poderão ser aplicadas de forma padronizada, reduzindo o risco de incompatibilidades. Essa base também abre caminho para um futuro sistema de licenciamento distribuído, no qual cada clínica operaria sua própria instância isolada.
 
-| Cenário de Distribuição | Com Docker | Sem Docker |
-|---|---|---|
-| **Instalação em novo servidor** | `docker compose up` | Horas de configuração manual |
-| **Atualização do sistema** | Nova versão de imagem + `docker compose pull` | Atualização manual com risco de quebrar config |
-| **Rollback em caso de falha** | `docker compose up` com imagem anterior | Rollback complexo e arriscado |
-| **Onboarding de clínica nova** | Mesmo arquivo para todas as clínicas | Configuração única por cliente |
+```mermaid
+flowchart LR
+    DEV["Desenvolvimento\nAmbiente padronizado\nem containers"]
+    TEST["Testes\nAmbiente isolado\ne reproduzível"]
+    FUTURE["Implantação Futura\nClínicas recebem arquivo\nde configuração pronto\n+ docker compose up"]
 
-### Fluxo Completo de Uso com Docker
+    DEV -->|"mesmo docker-compose.yml"| TEST
+    TEST -->|"base arquitetural"| FUTURE
+```
+
+> **Observação**
+>
+> A implantação comercial em clínicas é um objetivo planejado para etapas futuras do projeto, conforme previsto no TCC. O uso do Docker na fase de desenvolvimento já estabelece a base arquitetural necessária para viabilizar essa distribuição futura, incluindo a possibilidade de um sistema de licenciamento distribuído por instância.
+
+### Fluxo de Uso com Docker Compose
 
 ```bash
 # 1. Clonar o repositório
 git clone https://github.com/usuario/neurosync.git
 cd neurosync
 
-# 2. Criar o arquivo de variáveis de ambiente a partir do exemplo
-cp .env.example .env
-# Editar .env com as credenciais do ambiente
+# 2. Configurar as variáveis de ambiente
+# Criar um arquivo .env com as credenciais do banco de dados e demais configurações
+# (os campos necessários estão documentados no repositório)
 
 # 3. Iniciar toda a aplicação com um único comando
 docker compose up -d
@@ -1299,6 +1304,22 @@ docker compose logs -f app
 
 # 7. Parar tudo quando não precisar mais
 docker compose down
+```
+
+```mermaid
+sequenceDiagram
+    participant DEV as Desenvolvedor / Avaliador
+    participant GIT as Repositório Git
+    participant DC as Docker Compose
+    participant DB as Container db (MySQL)
+    participant APP as Container app (Next.js)
+
+    DEV->>GIT: git clone
+    DEV->>DC: docker compose up -d
+    DC->>DB: Cria container MySQL (db)
+    DB-->>DC: Healthcheck: OK
+    DC->>APP: Cria container Next.js (app)
+    APP-->>DEV: localhost:3000 disponível
 ```
 
 ---
